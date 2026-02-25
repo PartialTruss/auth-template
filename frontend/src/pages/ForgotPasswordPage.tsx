@@ -1,6 +1,10 @@
 import { AxiosError } from "axios";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import forgotPasswordLogo from "../assets/Images/Forgot_Password.svg";
+import Button from "../components/common/Button";
+import Input from "../components/common/Input";
+import AuthLayout from "../layouts/AuthLayout";
 import { api } from "../lib/axios";
 
 const ForgotPasswordPage = () => {
@@ -32,18 +36,26 @@ const ForgotPasswordPage = () => {
       <h1>success!</h1>
     </div>
   ) : (
-    <div className="">
-      <h1>Forgot Password</h1>
-      {errorMessage && <div>{errorMessage}</div>}
-      <input
+    <AuthLayout
+      title="Forgot Password"
+      error={errorMessage}
+      mainLogo={forgotPasswordLogo}
+    >
+      <Input
+        label="Email"
         type="email"
         value={emailValue}
         onChange={(e) => setEmailValue(e.target.value)}
       />
-      <button disabled={!emailValue} onClick={onSubmitClicked}>
-        Submit
-      </button>
-    </div>
+      <section className="mt-3">
+        <Button
+          type="submit"
+          text="Send me instructions"
+          disabled={!emailValue}
+          onClick={onSubmitClicked}
+        />
+      </section>
+    </AuthLayout>
   );
 };
 

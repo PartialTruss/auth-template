@@ -10,8 +10,10 @@ const Input = ({ type, label, ...props }: InputProps) => {
 
   return (
     <>
-      <div className="">
-        <label htmlFor="">{label}</label>
+      <>
+        <label htmlFor="" className="mb-2">
+          {label}
+        </label>
         <div className="relative">
           <input
             type={inputType}
@@ -34,7 +36,7 @@ const Input = ({ type, label, ...props }: InputProps) => {
             }
           </button>
         )}
-      </div>
+      </>
     </>
   );
 };

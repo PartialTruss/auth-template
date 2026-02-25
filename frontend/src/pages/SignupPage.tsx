@@ -1,37 +1,51 @@
 import { AxiosError } from "axios";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Button from "../components/common/Button";
+import Checkbox from "../components/common/Checkbox";
+import GoogleButton from "../components/common/GoogleButton";
+import Input from "../components/common/Input";
 import { useToken } from "../context/useToken";
+import AuthLayout from "../layouts/AuthLayout";
 import { api } from "../lib/axios";
 
 const SignupPage: React.FC = () => {
-  const [token, setToken] = useToken();
-  const [emailValue, setEmailValue] = useState("");
-  const [passwordValue, setPasswordValue] = useState("");
+  const [, setToken] = useToken();
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const navigateTo = useNavigate();
+  const navigate = useNavigate();
+  const [googleUrl, setGoogleUrl] = useState("");
 
-  const onLogInClicked = async () => {
+  useEffect(() => {
+    const loadGoogleUrl = async () => {
+      try {
+        const res = await api.get("/auth/api/google/url");
+        setGoogleUrl(res.data.url);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadGoogleUrl();
+  }, []);
+
+  const handleSignUp = async () => {
     setLoading(true);
     setError(null);
-
     try {
       const response = await api.post<{ token: string }>("/auth/api/sign-up", {
-        email: emailValue,
-        password: passwordValue,
+        email,
+        password,
       });
-
-      const { token } = response.data;
-      setToken(token);
-      navigateTo("/login");
+      setToken(response.data.token);
+      navigate("/", { replace: true });
     } catch (err) {
       if (err instanceof AxiosError) {
-        if (err.response?.data?.message) {
-          setError(err.response.data.message);
-        } else {
-          setError("Login failed. Please try again.");
-        }
+        setError(
+          err.response?.data?.message ?? "Sign up failed. Please try again.",
+        );
       }
     } finally {
       setLoading(false);
@@ -39,31 +53,61 @@ const SignupPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <h1 className="text-2xl font-bold mb-4">Sign up</h1>
-      {error && <p className="text-red-500 mb-2">{error}</p>}
-      <input
-        type="email"
-        placeholder="Email"
-        value={emailValue}
-        onChange={(e) => setEmailValue(e.target.value)}
-        className="border p-2 mb-2 w-full max-w-sm rounded"
-      />
-      <input
-        type="password"
-        placeholder="Password"
-        value={passwordValue}
-        onChange={(e) => setPasswordValue(e.target.value)}
-        className="border p-2 mb-4 w-full max-w-sm rounded"
-      />
-      <button
-        onClick={onLogInClicked}
-        disabled={loading}
-        className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
+    <AuthLayout
+      title="Create your account"
+      subtitle="Lorem ipsum dolor sit amet consectetur adipiscing elit."
+      error={error}
+      footer={{
+        text: "Already have an account?",
+        linkText: "Log in",
+        linkTo: "/login",
+      }}
+    >
+      <form
+        className="flex flex-col w-full"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSignUp();
+        }}
       >
-        {loading ? "Logging in..." : "Log In"}
-      </button>
-    </div>
+        <Input
+          label="Username"
+          type="text"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <Input
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <Input
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        <section className="flex items-center mb-4">
+          <Checkbox text="I agree to the Terms & Conditions and Privacy Policy" />
+        </section>
+        <Button
+          type="submit"
+          onClick={handleSignUp}
+          disabled={loading}
+          text={loading ? "Creating account..." : "Sign up"}
+        />
+        <section className="flex justify-between items-center mt-5 gap-2">
+          <div className="flex-1 border-t border-[#83C5BE]/30" />
+          <span className="text-[#00363A]/60 text-sm">or</span>
+          <div className="flex-1 border-t border-[#83C5BE]/30" />
+        </section>
+        <GoogleButton googleUrl={googleUrl} text="Sign up with Google" />
+      </form>
+    </AuthLayout>
   );
 };
 

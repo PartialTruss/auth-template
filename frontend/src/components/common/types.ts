@@ -10,3 +10,12 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
     type: "button" | "reset" | "submit" | undefined,
     text: string
 }
+
+export interface CheckBoxProps {
+    text: string;
+}
+
+export interface GoogleUrlProps {
+    googleUrl: string;
+    text: string
+}
