@@ -1,6 +1,6 @@
-import { AxiosError } from "axios";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import line from "../assets/Images/Line.svg";
 import Button from "../components/common/Button";
 import Checkbox from "../components/common/Checkbox";
 import GoogleButton from "../components/common/GoogleButton";
@@ -8,12 +8,19 @@ import Input from "../components/common/Input";
 import { useToken } from "../context/useToken";
 import AuthLayout from "../layouts/AuthLayout";
 import { api } from "../lib/axios";
+import { getErrorMessage } from "../lib/getErrorMessage";
+import {
+  validateEmail,
+  validatePassword,
+  validateUsername,
+} from "../lib/validation";
 
 const SignupPage: React.FC = () => {
   const [, setToken] = useToken();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isChecked, setIsChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -25,28 +32,54 @@ const SignupPage: React.FC = () => {
         const res = await api.get("/auth/api/google/url");
         setGoogleUrl(res.data.url);
       } catch (err) {
-        console.error(err);
+        setError(
+          getErrorMessage(err, "Google sign-up is unavailable right now."),
+        );
       }
     };
     loadGoogleUrl();
   }, []);
 
+  const clearError = () => {
+    if (error) setError(null);
+  };
+
   const handleSignUp = async () => {
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      setError(usernameError);
+      return;
+    }
+
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
+
+    if (!isChecked) {
+      setError("You must agree to the terms & conditions.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
+
     try {
       const response = await api.post<{ token: string }>("/auth/api/sign-up", {
-        email,
+        email: email.trim(),
         password,
       });
       setToken(response.data.token);
       navigate("/", { replace: true });
     } catch (err) {
-      if (err instanceof AxiosError) {
-        setError(
-          err.response?.data?.message ?? "Sign up failed. Please try again.",
-        );
-      }
+      setError(getErrorMessage(err, "Sign up failed. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -54,8 +87,8 @@ const SignupPage: React.FC = () => {
 
   return (
     <AuthLayout
-      title="Create your account"
-      subtitle="Lorem ipsum dolor sit amet consectetur adipiscing elit."
+      title="Get Started Now!"
+      subtitle="Elon Musk’s repeated wavering on his deal to buy Twitter has roiled markets."
       error={error}
       footer={{
         text: "Already have an account?",
@@ -64,7 +97,8 @@ const SignupPage: React.FC = () => {
       }}
     >
       <form
-        className="flex flex-col w-full"
+        className="mt-3 flex w-full flex-col"
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           handleSignUp();
@@ -73,37 +107,51 @@ const SignupPage: React.FC = () => {
         <Input
           label="Username"
           type="text"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            clearError();
+          }}
         />
         <Input
           label="Email"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
+          onChange={(e) => {
+            setEmail(e.target.value);
+            clearError();
+          }}
         />
         <Input
           label="Password"
           type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
+          onChange={(e) => {
+            setPassword(e.target.value);
+            clearError();
+          }}
         />
-        <section className="flex items-center mb-4">
-          <Checkbox text="I agree to the Terms & Conditions and Privacy Policy" />
+        <section className="mb-4 flex items-center">
+          <Checkbox
+            text="I agree to the"
+            secondary_text="terms & conditions"
+            checked={isChecked}
+            onChange={(e) => {
+              setIsChecked(e.target.checked);
+              if (e.target.checked) clearError();
+            }}
+            required
+          />
         </section>
         <Button
           type="submit"
-          onClick={handleSignUp}
-          disabled={loading}
+          disabled={loading || !isChecked}
           text={loading ? "Creating account..." : "Sign up"}
         />
-        <section className="flex justify-between items-center mt-5 gap-2">
-          <div className="flex-1 border-t border-[#83C5BE]/30" />
-          <span className="text-[#00363A]/60 text-sm">or</span>
-          <div className="flex-1 border-t border-[#83C5BE]/30" />
+        <section className="mt-5 flex w-[47%] items-center justify-between gap-2">
+          <img src={line} alt="" />
+          <span className="text-sm text-[#00363A]/60">or</span>
+          <img src={line} alt="" />
         </section>
         <GoogleButton googleUrl={googleUrl} text="Sign up with Google" />
       </form>

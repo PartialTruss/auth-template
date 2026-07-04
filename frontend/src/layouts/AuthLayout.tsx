@@ -1,56 +1,58 @@
 import { Link } from "react-router-dom";
-import brandLogo from "../assets/Images/brand_logo.svg";
+import Image from "../assets/Images/Image2.png";
+import logo from "../assets/Images/logo.svg";
 import type { AuthLayoutProps } from "./types";
 
-const AuthLayout: React.FC<AuthLayoutProps> = ({
+const AuthLayout = ({
   title,
   subtitle,
   children,
   footer,
   error,
-  mainLogo,
-}) => {
+}: AuthLayoutProps) => {
   return (
-    <main className="flex justify-evenly items-center bg-[#EDF6F9]/18 w-full min-h-screen ">
-      <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        {error && (
-          <p
-            className="text-red-500 mb-3 w-full max-w-sm text-center text-sm"
-            role="alert"
-          >
-            {error}
-          </p>
-        )}
-        <div className="flex flex-col w-full max-w-sm">
-          <section className="flex justify-center">
-            <img src={brandLogo} alt="brandLogo" className="w-[20%]" />
-          </section>
-          <h1 className="text-[2.37rem] font-myfont text-[#006D77] mb-2 mt-2">
-            {title}
-          </h1>
-          <p className="text-[#006D77]">{subtitle}</p>
-          {children}
-        </div>
-        {footer && (
-          <p className="mt-6 text-center">
-            <span className="text-[#00363A]/60">{footer.text}</span>{" "}
-            <Link
-              to={footer.linkTo}
-              className="text-[#006D77] font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-[#006D77] focus:ring-offset-1 rounded"
+    <main className="relative flex min-h-dvh flex-col items-center justify-center bg-[#F1FAEE] md:flex-row md:h-screen lg:min-h-screen lg:justify-around">
+      <img src={logo} alt="sample-logo" className="auth-logo" />
+
+      <div className="flex w-full flex-col px-5 py-16 sm:px-6 sm:py-20 md:px-16 md:py-12 lg:w-[90%] lg:px-24">
+        <div className="mx-auto flex w-full max-w-full flex-col md:max-w-xs lg:max-w-md">
+          <div className="text-center">
+            <h1 className="auth-title">{title}</h1>
+            {subtitle && (
+              <p className="auth-subtitle mt-2 sm:mt-3">{subtitle}</p>
+            )}
+          </div>
+
+          {error && (
+            <p
+              className="auth-error mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-center"
+              role="alert"
             >
-              {footer.linkText}
-            </Link>
-          </p>
-        )}
+              {error}
+            </p>
+          )}
+
+          {children && <div className="w-full">{children}</div>}
+
+          {footer && (
+            <p className="auth-footer mt-8 text-center">
+              <span>{footer.text}</span>{" "}
+              <Link
+                to={footer.linkTo}
+                className="font-medium text-[#1D3557] hover:underline focus:outline-none focus:ring-2 focus:ring-[#006D77] focus:ring-offset-1 rounded"
+              >
+                {footer.linkText}
+              </Link>
+            </p>
+          )}
+        </div>
       </div>
-      <div className="hidden md:block h-screen bg-[#00363A]/25 w-0.5 shrink-0" />
-      <div className="hidden md:flex items-center justify-center flex-1 max-w-md">
-        <img
-          src={mainLogo}
-          alt=""
-          className="h-80 lg:h-112 w-auto object-contain"
-        />
-      </div>
+
+      <div
+        className="hidden min-h-dvh bg-cover bg-center bg-no-repeat lg:block lg:w-full"
+        style={{ backgroundImage: `url(${Image})` }}
+        aria-hidden="true"
+      />
     </main>
   );
 };

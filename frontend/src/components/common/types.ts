@@ -1,4 +1,5 @@
 import type React from "react";
+import type { ComponentProps } from "react";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     type: string,
@@ -11,8 +12,10 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
     text: string
 }
 
-export interface CheckBoxProps {
+export interface CheckBoxProps extends ComponentProps<"input"> {
     text: string;
+    secondary_text: string;
+    checked: boolean;
 }
 
 export interface GoogleUrlProps {

@@ -1,48 +1,49 @@
 import { useNavigate } from "react-router-dom";
+import Button from "../components/common/Button";
+import Input from "../components/common/Input";
 import { useToken } from "../context/useToken";
 import { useUser } from "../hooks/useUser";
+import AuthLayout from "../layouts/AuthLayout";
 
 const UserInfoPage: React.FC = () => {
   const user = useUser();
-  const { email } = user;
+  const [, setToken] = useToken();
   const navigate = useNavigate();
 
-  const [token, setToken] = useToken();
-
-  if (!user) return <div>Loading...</div>;
-
-  // const saveChanges = async () => {
-  //   try {
-  //     const response = await axios.put(
-  //       `/api/users/${id}`,
-  //       {
-  //         email,
-  //       },
-  //       {
-  //         headers: { Authorization: `Bearer ${token}` },
-  //       }
-  //     );
-
-  //     const { token: newToken } = response.data;
-  //     setToken(newToken);
-  //   } catch (error) {
-  //     if (error instanceof Error) {
-  //       return;
-  //     }
-  //   }
-  // };
-
   const logOut = () => {
-    setToken(undefined);
+    setToken("");
     navigate("/login");
   };
 
+  if (!user) {
+    return (
+      <AuthLayout title="Loading" subtitle="Please wait a moment..." />
+    );
+  }
+
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-2">User Info Page</h1>
-      <p>Email: {user.email}</p>
-      <button onClick={logOut}>logout</button>
-    </div>
+    <AuthLayout
+      title="Your Account"
+      subtitle="View your account details and manage your session."
+      footer={{
+        text: "Need to change your password?",
+        linkText: "Reset password",
+        linkTo: "/forgot-password",
+      }}
+    >
+      <div className="mt-3 flex w-full flex-col">
+        <Input
+          label="Email"
+          type="email"
+          value={user.email ?? ""}
+          readOnly
+          className="cursor-default bg-[#F1FAEE]/60"
+        />
+        <section className="mt-3">
+          <Button type="button" text="Log Out" onClick={logOut} />
+        </section>
+      </div>
+    </AuthLayout>
   );
 };
 

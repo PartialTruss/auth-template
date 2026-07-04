@@ -6,9 +6,8 @@ export interface AuthLayoutFooter {
 
 export interface AuthLayoutProps {
     title: string;
-    mainLogo: string;
     subtitle?: string;
-    children: React.ReactNode;
+    children?: React.ReactNode;
     footer?: AuthLayoutFooter;
     error?: string | null;
 }

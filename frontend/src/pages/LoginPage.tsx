@@ -1,7 +1,6 @@
-import { AxiosError } from "axios";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import mainLogo from "../assets/Images/Group 1.svg";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import line from "../assets/Images/Line.svg";
 import Button from "../components/common/Button";
 import Checkbox from "../components/common/Checkbox";
 import GoogleButton from "../components/common/GoogleButton";
@@ -10,17 +9,22 @@ import { useToken } from "../context/useToken";
 import { useUser } from "../hooks/useUser";
 import AuthLayout from "../layouts/AuthLayout";
 import { api } from "../lib/axios";
+import { getErrorMessage } from "../lib/getErrorMessage";
+import { validateEmail, validatePassword } from "../lib/validation";
 
 const LoginPage: React.FC = () => {
   const [, setToken] = useToken();
   const user = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [googleUrl, setGoogleUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    (location.state as { error?: string } | null)?.error ?? null,
+  );
 
   useEffect(() => {
     const loadGoogleUrl = async () => {
@@ -28,7 +32,9 @@ const LoginPage: React.FC = () => {
         const res = await api.get("/auth/api/google/url");
         setGoogleUrl(res.data.url);
       } catch (err) {
-        console.error(err);
+        setError(
+          getErrorMessage(err, "Google sign-in is unavailable right now."),
+        );
       }
     };
     loadGoogleUrl();
@@ -40,40 +46,58 @@ const LoginPage: React.FC = () => {
     }
   }, [user, navigate]);
 
+  const clearError = () => {
+    if (error) setError(null);
+  };
+
   const handleLogin = async () => {
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
+      return;
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
+
     setLoading(true);
     setError(null);
+
     try {
       const res = await api.post("/auth/api/login", { email, password });
       setToken(res.data.token);
       navigate("/", { replace: true });
     } catch (err) {
-      if (err instanceof AxiosError) {
-        setError(err.response?.data?.error || "Login failed");
-      }
+      setError(getErrorMessage(err, "Login failed. Please try again."));
     } finally {
       setLoading(false);
     }
   };
 
   if (user === undefined) {
-    return <p className="text-center mt-10">Loading...</p>;
+    return (
+      <AuthLayout title="Loading" subtitle="Please wait a moment..." />
+    );
   }
   if (user) return null;
 
   return (
     <AuthLayout
       title="Hey, Welcome Back!"
+      subtitle="Elon Musk’s repeated wavering on his deal to buy Twitter has roiled markets."
       error={error}
       footer={{
         text: "New member?",
-        linkText: "Create an account",
+        linkText: " Create an account",
         linkTo: "/sign-up",
       }}
-      mainLogo={mainLogo}
     >
       <form
-        className="flex flex-col w-full"
+        className="mt-3 flex flex-col"
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           handleLogin();
@@ -83,37 +107,42 @@ const LoginPage: React.FC = () => {
           label="Email"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
+          onChange={(e) => {
+            setEmail(e.target.value);
+            clearError();
+          }}
         />
         <Input
           label="Password"
           type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
+          onChange={(e) => {
+            setPassword(e.target.value);
+            clearError();
+          }}
         />
-        <section className="flex justify-between items-center mb-4">
+        <section className="mb-4 flex justify-between items-center">
           <Checkbox text="Remember me" />
           <Link
             to="/forgot-password"
-            className="text-sm text-[#00363A] hover:underline focus:outline-none focus:ring-2 focus:ring-[#006D77] rounded"
+            className="text-sm text-[#1D3557] hover:underline focus:outline-none focus:ring-2 focus:ring-[#1D3557] rounded"
           >
-            Forgot password?
+            <span className="font-medium">Forgot password?</span>
           </Link>
         </section>
         <Button
           type="submit"
-          onClick={handleLogin}
-          disabled={loading || !email}
+          disabled={loading}
           text={loading ? "Logging in..." : "Log In"}
         />
-        <section className="flex justify-between items-center mt-5 gap-2">
-          <div className="flex-1 border-t border-[#83C5BE]/30" />
-          <span className="text-[#00363A]/60 text-sm">or</span>
-          <div className="flex-1 border-t border-[#83C5BE]/30" />
+        <section className="mt-5 flex w-[46%] items-center justify-between gap-2">
+          <img src={line} alt="" />
+          <span className="text-sm text-[#00363A]/60">or</span>
+          <img src={line} alt="" />
         </section>
-        <GoogleButton googleUrl={googleUrl} text="Sign in with Google" />
+        <section>
+          <GoogleButton googleUrl={googleUrl} text="Sign in with Google" />
+        </section>
       </form>
     </AuthLayout>
   );

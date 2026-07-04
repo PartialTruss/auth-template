@@ -1,11 +1,14 @@
-import axios, { AxiosError } from "axios";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import AuthLayout from "../layouts/AuthLayout";
+import { api } from "../lib/axios";
+import { getErrorMessage } from "../lib/getErrorMessage";
 
 type Status = "verifying" | "success" | "error";
 
 const VerifyPage = () => {
   const [status, setStatus] = useState<Status>("verifying");
+  const [error, setError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get("token");
@@ -16,30 +19,30 @@ const VerifyPage = () => {
     const verifyEmail = async () => {
       if (!token) {
         setStatus("error");
+        setError("Verification link is missing or invalid.");
         return;
       }
 
       try {
-        const res = await axios.get(
-          `http://localhost:3000/auth/verify-email?token=${token}`,
-          { signal: controller.signal }
-        );
+        await api.get(`/auth/verify-email?token=${token}`, {
+          signal: controller.signal,
+        });
 
         setStatus("success");
-        setStatus(res.data.message);
 
         setTimeout(() => {
-          navigate("/login");
+          navigate("/login", { replace: true });
         }, 1500);
       } catch (err) {
-        if (err instanceof AxiosError) {
-          if (controller.signal.aborted) return;
+        if (controller.signal.aborted) return;
 
-          setStatus("error");
-          setStatus(
-            err.response?.data?.message || "Verification failed. Try again."
-          );
-        }
+        setStatus("error");
+        setError(
+          getErrorMessage(
+            err,
+            "Email verification failed. The link may be invalid or expired.",
+          ),
+        );
       }
     };
 
@@ -50,14 +53,18 @@ const VerifyPage = () => {
     };
   }, [token, navigate]);
 
-  return (
-    <div style={{ textAlign: "center", marginTop: "2rem" }}>
-      <h1>Email Verification</h1>
+  const subtitles: Record<Status, string> = {
+    verifying: "Please wait while we verify your email address.",
+    success: "Your email has been verified. Redirecting you to login...",
+    error: "We couldn't verify your email.",
+  };
 
-      {status === "verifying" && <p>⏳ Please wait...</p>}
-      {status === "success" && <p>✅ Redirecting to login...</p>}
-      {status === "error" && <p>❌ Something went wrong</p>}
-    </div>
+  return (
+    <AuthLayout
+      title="Email Verification"
+      subtitle={subtitles[status]}
+      error={status === "error" ? error : null}
+    />
   );
 };
 
