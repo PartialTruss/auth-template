@@ -1,8 +1,10 @@
 import { google } from "googleapis";
+import { createUser, findUserByEmail, saveUser } from "./auth.repository";
 import { oauthClient } from "../util/googleOauthUtil";
-import User from "../models/User";
+import { IUser } from "../models/User";
+import { BadRequestError } from "../errors/AppError";
 
-export const handleGoogleCallback = async (code: string) => {
+export const handleGoogleCallback = async (code: string): Promise<IUser> => {
     const { tokens } = await oauthClient.getToken(code);
     oauthClient.setCredentials(tokens);
 
@@ -12,19 +14,26 @@ export const handleGoogleCallback = async (code: string) => {
     });
 
     if (!data.email) {
-        throw new Error("No email from Google.");
+        throw new BadRequestError("No email from Google.");
     }
 
-    let user = await User.findOne({ email: data.email });
+    const email = data.email.toLowerCase();
+    let user = await findUserByEmail(email);
 
     if (!user) {
-        user = new User({
-            email: data.email,
-            passwordHash: undefined,
-            googleId: data.id,
-            emailVerified: true,
+        user = await createUser({
+            email,
+            googleId: data.id ?? undefined,
+            isVerified: true,
         });
-        await user.save();
+        return user;
     }
-    return user
-}
+
+    if (!user.googleId && data.id) {
+        user.googleId = data.id;
+        user.isVerified = true;
+        await saveUser(user);
+    }
+
+    return user;
+};

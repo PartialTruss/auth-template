@@ -1,74 +1,126 @@
-// auth.service.ts
 import bcrypt from "bcrypt";
 import { google } from "googleapis";
-import User from "../models/User";
+import { config } from "../config";
+import {
+    BadRequestError,
+    ConflictError,
+    NotFoundError,
+    UnauthorizedError,
+} from "../errors/AppError";
+import { IUser } from "../models/User";
 import { generateEmailToken } from "../util/emailToken";
 import { oauthClient } from "../util/googleOauthUtil";
+import { sendPasswordReset, sendVerificationEmail } from "../util/sendVerification";
 import {
-    sendVerificationEmail
-} from "../util/sendVerification";
-import {
-    findUserByEmail
+    createUser,
+    findUserByEmail,
+    findUserByResetToken,
+    findUserByVerificationToken,
+    saveUser,
 } from "./auth.repository";
-import { createJwt } from "./auth.token";
+import {
+    createJwt,
+    createResetToken,
+    getEmailVerificationExpiry,
+    hashResetToken,
+} from "./auth.token";
 
-export const signupUser = async (email: string, password: string) => {
+const BCRYPT_ROUNDS = 10;
+
+export const signupUser = async (
+    email: string,
+    password: string
+): Promise<string> => {
     const existing = await findUserByEmail(email);
-    if (existing) throw new Error("USER_EXISTS");
+    if (existing) {
+        throw new ConflictError("User already exists", "USER_EXISTS");
+    }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const emailToken = generateEmailToken();
 
-    const user = await new User({
-        email,
+    const user = await createUser({
+        email: email.toLowerCase(),
         passwordHash,
         emailVerificationToken: emailToken,
-        emailVerificationExpires: Date.now() + 1000 * 60 * 60,
-    }).save();
+        emailVerificationExpires: new Date(getEmailVerificationExpiry()),
+    });
 
-    const link = `${process.env.CLIENT_URL}/verify-email?token=${emailToken}`;
-    await sendVerificationEmail(email, link);
+    const link = `${config.clientUrl}/verify-email?token=${emailToken}`;
+    await sendVerificationEmail(user.email, link);
 
-    return createJwt({ userId: user._id.toString(), email });
+    return createJwt({ userId: user._id.toString(), email: user.email });
 };
 
-export const loginUser = async (email: string, password: string) => {
-    const user = await User.findOne({ email });
-    if (!user) {
-        throw new Error("Invalid email or password");
+export const loginUser = async (
+    email: string,
+    password: string
+): Promise<IUser> => {
+    const user = await findUserByEmail(email);
+    if (!user || !user.passwordHash) {
+        throw new UnauthorizedError("Invalid email or password");
     }
 
     if (!user.isVerified) {
-        throw new Error("Please verify your email first");
+        throw new UnauthorizedError("Please verify your email first");
     }
 
-    const passwordIsCorrect = await bcrypt.compare(password, user.passwordHash);
+    const passwordIsCorrect = await bcrypt.compare(
+        password,
+        user.passwordHash
+    );
     if (!passwordIsCorrect) {
-        throw new Error("Invalid email or password");
+        throw new UnauthorizedError("Invalid email or password");
     }
 
-    return user; // ✅ IMPORTANT
+    return user;
 };
 
-
-
-export const verifyEmailToken = async (token: string) => {
-
-    const user = await User.findOne({
-        emailVerificationToken: token,
-        emailVerificationExpires: { $gt: Date.now() }
-    })
+export const verifyEmailToken = async (token: string): Promise<void> => {
+    const user = await findUserByVerificationToken(token);
 
     if (!user) {
-        throw new Error("Invalid or expired token.")
+        throw new BadRequestError("Invalid or expired token.");
     }
 
     user.isVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
 
-    await user.save()
+    await saveUser(user);
+};
 
+export const requestPasswordReset = async (email: string): Promise<void> => {
+    const user = await findUserByEmail(email);
 
-}
+    if (!user) {
+        return;
+    }
 
+    const { raw, hashed, expires } = createResetToken();
+
+    user.passwordResetToken = hashed;
+    user.passwordResetExpires = new Date(expires);
+    await saveUser(user);
+
+    const resetLink = `${config.clientUrl}/forgot-password/${raw}`;
+    await sendPasswordReset(user.email, resetLink);
+};
+
+export const resetPasswordWithToken = async (
+    rawToken: string,
+    newPassword: string
+): Promise<void> => {
+    const hashedToken = hashResetToken(rawToken);
+    const user = await findUserByResetToken(hashedToken);
+
+    if (!user) {
+        throw new NotFoundError("Invalid or expired reset token.");
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+
+    await saveUser(user);
+};

@@ -1,17 +1,21 @@
 import { google } from "googleapis";
+import { config } from "../config";
 
 export const oauthClient = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    "http://localhost:3000/auth/google/callback");
+    config.google.clientId,
+    config.google.clientSecret,
+    config.google.redirectUri
+);
 
-export const getGoogleOauthUrl = () => {
-    const scopes = ["https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
+export const getGoogleOauthUrl = (): string => {
+    const scopes = [
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
+    ];
 
     return oauthClient.generateAuthUrl({
         access_type: "offline",
         prompt: "consent",
-        scope: scopes
-    })
-}
-
+        scope: scopes,
+    });
+};

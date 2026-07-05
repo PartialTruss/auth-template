@@ -1,9 +1,15 @@
-import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { config } from "../config";
+import { JwtPayload } from "../types/jwt";
 
-export const createJwt = (payload: object) =>
-    jwt.sign(payload, process.env.JWT_SECRET as string, {
-        expiresIn: "2d",
+const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 60;
+const RESET_TOKEN_TTL_MS = 1000 * 60 * 15;
+const JWT_EXPIRES_IN = "2d";
+
+export const createJwt = (payload: JwtPayload): string =>
+    jwt.sign(payload, config.jwtSecret, {
+        expiresIn: JWT_EXPIRES_IN,
     });
 
 export const createResetToken = () => {
@@ -13,6 +19,12 @@ export const createResetToken = () => {
     return {
         raw,
         hashed,
-        expires: Date.now() + 1000 * 60 * 15,
+        expires: Date.now() + RESET_TOKEN_TTL_MS,
     };
 };
+
+export const hashResetToken = (rawToken: string): string =>
+    crypto.createHash("sha256").update(rawToken).digest("hex");
+
+export const getEmailVerificationExpiry = (): number =>
+    Date.now() + EMAIL_VERIFICATION_TTL_MS;
