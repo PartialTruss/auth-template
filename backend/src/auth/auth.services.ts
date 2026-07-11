@@ -1,5 +1,4 @@
 import bcrypt from "bcrypt";
-import { google } from "googleapis";
 import { config } from "../config";
 import {
     BadRequestError,
@@ -9,7 +8,6 @@ import {
 } from "../errors/AppError";
 import { IUser } from "../models/User";
 import { generateEmailToken } from "../util/emailToken";
-import { oauthClient } from "../util/googleOauthUtil";
 import { sendPasswordReset, sendVerificationEmail } from "../util/sendVerification";
 import {
     createUser,
@@ -19,18 +17,18 @@ import {
     saveUser,
 } from "./auth.repository";
 import {
-    createJwt,
     createResetToken,
     getEmailVerificationExpiry,
-    hashResetToken,
+    hashResetToken
 } from "./auth.token";
 
 const BCRYPT_ROUNDS = 10;
+const DUMMY_HASH = "$2b$10$Nx3721kGpvN824./7d8GquNuoPZ116lzH997NlC9Peh16F5ZgV21a";
 
 export const signupUser = async (
     email: string,
     password: string
-): Promise<string> => {
+): Promise<void> => {
     const existing = await findUserByEmail(email);
     if (existing) {
         throw new ConflictError("User already exists", "USER_EXISTS");
@@ -38,26 +36,33 @@ export const signupUser = async (
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const emailToken = generateEmailToken();
+    const hashedEmailToken = hashResetToken(emailToken);
 
     const user = await createUser({
         email: email.toLowerCase(),
         passwordHash,
-        emailVerificationToken: emailToken,
+        emailVerificationToken: hashedEmailToken,
         emailVerificationExpires: new Date(getEmailVerificationExpiry()),
     });
 
     const link = `${config.clientUrl}/verify-email?token=${emailToken}`;
     await sendVerificationEmail(user.email, link);
 
-    return createJwt({ userId: user._id.toString(), email: user.email });
 };
 
 export const loginUser = async (
     email: string,
     password: string
 ): Promise<IUser> => {
-    const user = await findUserByEmail(email);
-    if (!user || !user.passwordHash) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await findUserByEmail(normalizedEmail);
+
+
+    const passwordHashCompare = user?.passwordHash ? user.passwordHash : DUMMY_HASH;
+    const passwordIsCorrect = await bcrypt.compare(password, passwordHashCompare);
+
+
+    if (!user || !passwordIsCorrect) {
         throw new UnauthorizedError("Invalid email or password");
     }
 
@@ -65,21 +70,14 @@ export const loginUser = async (
         throw new UnauthorizedError("Please verify your email first");
     }
 
-    const passwordIsCorrect = await bcrypt.compare(
-        password,
-        user.passwordHash
-    );
-    if (!passwordIsCorrect) {
-        throw new UnauthorizedError("Invalid email or password");
-    }
-
     return user;
 };
 
 export const verifyEmailToken = async (token: string): Promise<void> => {
+    const hashedToken = hashResetToken(token);
     const user = await findUserByVerificationToken(token);
 
-    if (!user) {
+    if (!user || !user.emailVerificationExpires || new Date() > user.emailVerificationExpires) {
         throw new BadRequestError("Invalid or expired token.");
     }
 
@@ -91,7 +89,8 @@ export const verifyEmailToken = async (token: string): Promise<void> => {
 };
 
 export const requestPasswordReset = async (email: string): Promise<void> => {
-    const user = await findUserByEmail(email);
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await findUserByEmail(normalizedEmail);
 
     if (!user) {
         return;
@@ -100,7 +99,7 @@ export const requestPasswordReset = async (email: string): Promise<void> => {
     const { raw, hashed, expires } = createResetToken();
 
     user.passwordResetToken = hashed;
-    user.passwordResetExpires = new Date(expires);
+    user.passwordResetExpires = new Date(expires); 
     await saveUser(user);
 
     const resetLink = `${config.clientUrl}/forgot-password/${raw}`;
@@ -114,7 +113,7 @@ export const resetPasswordWithToken = async (
     const hashedToken = hashResetToken(rawToken);
     const user = await findUserByResetToken(hashedToken);
 
-    if (!user) {
+    if (!user || !user.passwordResetExpires || new Date() > user.passwordResetExpires) {
         throw new NotFoundError("Invalid or expired reset token.");
     }
 
