@@ -1,27 +1,32 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useToken } from "../context/useToken";
+import type { JwtPayload } from "../types/auth";
 
-export const useUser = () => {
-    const [token] = useToken();
+function getPayloadFromToken(jwt: string): JwtPayload | null {
+    try {
+        const encodedPayload = jwt.split(".")[1];
+        if (!encodedPayload) return null;
 
-    const getPayloadFromToken = (token) => {
-        const encodedPayload = token.split(".")[1];
-        return JSON.parse(atob(encodedPayload))
+        return JSON.parse(atob(encodedPayload)) as JwtPayload;
+    } catch (error) {
+        console.error("Failed to decode JWT token:", error);
+        return null;
     }
+}
 
-    const [user, setUser] = useState(() => {
-        if (!token) return null
-        return getPayloadFromToken(token)
-    })
+export const useUser = (): JwtPayload | null => {
+    const [token, setToken] = useToken();
 
+    const user = useMemo((): JwtPayload | null => {
+        if (!token) return null;
+        return getPayloadFromToken(token);
+    }, [token]);
 
     useEffect(() => {
-        if (!token) {
-            setUser(null)
-        } else {
-            setUser(getPayloadFromToken(token))
+        if (token && user === null) {
+            setToken("");
         }
+    }, [token, user, setToken]);
 
-    }, [token]);
-    return user
-}
+    return user;
+};

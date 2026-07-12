@@ -6,20 +6,7 @@ interface ContextChildren {
 }
 
 export const TokenProvider = ({ children }: ContextChildren) => {
-  const [token, setTokenInternal] = useState<string | null>(() => {
-    return localStorage.getItem("token");
-  });
-
-  const setToken = (newToken: string) => {
-    if (!newToken) {
-      localStorage.removeItem("token");
-      setTokenInternal(null);
-      return;
-    }
-
-    localStorage.setItem("token", newToken);
-    setTokenInternal(newToken);
-  };
+  const [token, setToken] = useState<string | null>(null);
 
   return (
     <TokenContext.Provider value={[token, setToken]}>
