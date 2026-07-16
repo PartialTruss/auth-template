@@ -1,3 +1,4 @@
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
@@ -31,6 +32,7 @@ export const createApp = () => {
     );
     app.use(hpp());
     app.use(express.json({ limit: "10kb" }));
+    app.use(cookieParser());
 
     app.use((req, _res, next) => {
         logger.info("HTTP request", {

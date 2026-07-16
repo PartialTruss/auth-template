@@ -12,14 +12,18 @@ import { sendPasswordReset, sendVerificationEmail } from "../util/sendVerificati
 import {
     createUser,
     findUserByEmail,
+    findUserByRefreshTokenHash,
     findUserByResetToken,
     findUserByVerificationToken,
     saveUser,
 } from "./auth.repository";
 import {
+    createJwt,
+    createRefreshToken,
     createResetToken,
     getEmailVerificationExpiry,
-    hashResetToken
+    hashRefreshToken,
+    hashResetToken,
 } from "./auth.token";
 
 const BCRYPT_ROUNDS = 10;
@@ -47,7 +51,6 @@ export const signupUser = async (
 
     const link = `${config.clientUrl}/verify-email?token=${emailToken}`;
     await sendVerificationEmail(user.email, link);
-
 };
 
 export const loginUser = async (
@@ -57,10 +60,8 @@ export const loginUser = async (
     const normalizedEmail = email.toLowerCase().trim();
     const user = await findUserByEmail(normalizedEmail);
 
-
     const passwordHashCompare = user?.passwordHash ? user.passwordHash : DUMMY_HASH;
     const passwordIsCorrect = await bcrypt.compare(password, passwordHashCompare);
-
 
     if (!user || !passwordIsCorrect) {
         throw new UnauthorizedError("Invalid email or password");
@@ -99,7 +100,7 @@ export const requestPasswordReset = async (email: string): Promise<void> => {
     const { raw, hashed, expires } = createResetToken();
 
     user.passwordResetToken = hashed;
-    user.passwordResetExpires = new Date(expires); 
+    user.passwordResetExpires = new Date(expires);
     await saveUser(user);
 
     const resetLink = `${config.clientUrl}/forgot-password/${raw}`;
@@ -120,6 +121,62 @@ export const resetPasswordWithToken = async (
     user.passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+    user.refreshTokenHash = undefined;
+    user.refreshTokenExpires = undefined;
 
+    await saveUser(user);
+};
+
+export interface AuthSession {
+    accessToken: string;
+    refreshToken: string;
+}
+
+export const createAuthSession = async (user: IUser): Promise<AuthSession> => {
+    const accessToken = createJwt({
+        userId: user._id.toString(),
+        email: user.email,
+    });
+    const refresh = createRefreshToken();
+
+    user.refreshTokenHash = refresh.hashed;
+    user.refreshTokenExpires = refresh.expires;
+    await saveUser(user);
+
+    return {
+        accessToken,
+        refreshToken: refresh.raw,
+    };
+};
+
+export const refreshAuthSession = async (
+    rawRefreshToken: string
+): Promise<AuthSession> => {
+    const hashed = hashRefreshToken(rawRefreshToken);
+    const user = await findUserByRefreshTokenHash(hashed);
+
+    if (!user) {
+        throw new UnauthorizedError("Invalid or expired refresh token");
+    }
+
+    return createAuthSession(user);
+};
+
+export const revokeAuthSession = async (
+    rawRefreshToken?: string
+): Promise<void> => {
+    if (!rawRefreshToken) {
+        return;
+    }
+
+    const hashed = hashRefreshToken(rawRefreshToken);
+    const user = await findUserByRefreshTokenHash(hashed);
+
+    if (!user) {
+        return;
+    }
+
+    user.refreshTokenHash = undefined;
+    user.refreshTokenExpires = undefined;
     await saveUser(user);
 };

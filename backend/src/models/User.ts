@@ -9,6 +9,8 @@ export interface IUser extends Document {
     emailVerificationExpires?: Date;
     passwordResetToken?: string;
     passwordResetExpires?: Date;
+    refreshTokenHash?: string;
+    refreshTokenExpires?: Date;
 }
 
 const UserSchema = new Schema<IUser>(
@@ -24,6 +26,8 @@ const UserSchema = new Schema<IUser>(
         emailVerificationExpires: Date,
         passwordResetToken: { type: String },
         passwordResetExpires: Date,
+        refreshTokenHash: { type: String },
+        refreshTokenExpires: Date,
     },
     {
         timestamps: true,
@@ -32,6 +36,7 @@ const UserSchema = new Schema<IUser>(
 
 UserSchema.index({ emailVerificationToken: 1 }, { sparse: true });
 UserSchema.index({ passwordResetToken: 1 }, { sparse: true });
+UserSchema.index({ refreshTokenHash: 1 }, { sparse: true });
 
 export default mongoose.models.User ||
     mongoose.model<IUser>("User", UserSchema);

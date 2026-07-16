@@ -24,6 +24,12 @@ export const findUserByResetToken = (hashedToken: string) =>
         passwordResetExpires: { $gt: Date.now() },
     });
 
+export const findUserByRefreshTokenHash = (refreshTokenHash: string) =>
+    User.findOne({
+        refreshTokenHash,
+        refreshTokenExpires: { $gt: new Date() },
+    });
+
 export const createUser = (data: CreateUserData): Promise<IUser> =>
     new User(data).save();
 

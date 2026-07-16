@@ -1,15 +1,22 @@
 import { Request, Response } from "express";
 import {
+    createAuthSession,
     loginUser,
+    refreshAuthSession,
     requestPasswordReset,
     resetPasswordWithToken,
+    revokeAuthSession,
     signupUser,
     verifyEmailToken,
 } from "./auth.services";
-import { createJwt } from "./auth.token";
 import { getGoogleOauthUrl } from "../util/googleOauthUtil";
 import { handleGoogleCallback } from "./auth.oauth";
 import { config } from "../config";
+import {
+    clearRefreshCookie,
+    REFRESH_COOKIE_NAME,
+    setRefreshCookie,
+} from "../util/refreshCookie";
 import {
     forgotPasswordSchema,
     googleCallbackQuerySchema,
@@ -20,16 +27,16 @@ import {
     verifyEmailQuerySchema,
 } from "../validators/auth.validators";
 import { z } from "zod";
+import { UnauthorizedError } from "../errors/AppError";
 
 export const signup = async (req: Request, res: Response): Promise<void> => {
     const { email, password } = req.validated!.body as z.infer<
         typeof signupSchema
     >;
-    const token = await signupUser(email, password);
+    await signupUser(email, password);
 
     res.status(201).json({
-        message: "Account created.please verify your email.",
-        token,
+        message: "Account created. Please verify your email.",
     });
 };
 
@@ -38,16 +45,44 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         typeof loginSchema
     >;
     const user = await loginUser(email, password);
-    const token = createJwt({
-        userId: user._id.toString(),
-        email: user.email,
-    });
+    const session = await createAuthSession(user);
+
+    setRefreshCookie(res, session.refreshToken);
 
     res.json({
         message: "Login successful",
-        token,
+        token: session.accessToken,
         userId: user._id,
     });
+};
+
+export const refresh = async (req: Request, res: Response): Promise<void> => {
+    const rawRefreshToken = req.cookies?.[REFRESH_COOKIE_NAME] as
+        | string
+        | undefined;
+
+    if (!rawRefreshToken) {
+        throw new UnauthorizedError("No refresh token");
+    }
+
+    const session = await refreshAuthSession(rawRefreshToken);
+    setRefreshCookie(res, session.refreshToken);
+
+    res.json({
+        message: "Token refreshed",
+        token: session.accessToken,
+    });
+};
+
+export const logout = async (req: Request, res: Response): Promise<void> => {
+    const rawRefreshToken = req.cookies?.[REFRESH_COOKIE_NAME] as
+        | string
+        | undefined;
+
+    await revokeAuthSession(rawRefreshToken);
+    clearRefreshCookie(res);
+
+    res.json({ message: "Logged out successfully." });
 };
 
 export const verifyEmail = async (
@@ -108,10 +143,8 @@ export const googleCallback = async (
         typeof googleCallbackQuerySchema
     >;
     const user = await handleGoogleCallback(code);
-    const token = createJwt({
-        userId: user._id.toString(),
-        email: user.email,
-    });
+    const session = await createAuthSession(user);
 
-    res.redirect(`${config.clientUrl}/oauth-success?token=${token}`);
+    setRefreshCookie(res, session.refreshToken);
+    res.redirect(`${config.clientUrl}/oauth-success`);
 };
