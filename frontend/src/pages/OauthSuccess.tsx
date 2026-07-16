@@ -1,26 +1,35 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToken } from "../context/useToken";
 import AuthLayout from "../layouts/AuthLayout";
+import { refreshAccessToken } from "../lib/axios";
 
 const OauthSuccess = () => {
-  const [, setToken] = useToken();
+  const { setToken, isAuthReady, token } = useToken();
   const navigate = useNavigate();
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    if (!isAuthReady || startedRef.current) return;
+    startedRef.current = true;
 
-    if (token) {
-      setToken(token);
-      navigate("/", { replace: true });
-    } else {
+    const completeOauth = async () => {
+      const nextToken = token ?? (await refreshAccessToken());
+
+      if (nextToken) {
+        setToken(nextToken);
+        navigate("/", { replace: true });
+        return;
+      }
+
       navigate("/login", {
         replace: true,
         state: { error: "Google sign-in failed. Please try again." },
       });
-    }
-  }, [navigate, setToken]);
+    };
+
+    void completeOauth();
+  }, [isAuthReady, navigate, setToken, token]);
 
   return (
     <AuthLayout

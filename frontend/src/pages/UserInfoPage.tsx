@@ -7,12 +7,12 @@ import AuthLayout from "../layouts/AuthLayout";
 
 const UserInfoPage: React.FC = () => {
   const user = useUser();
-  const [, setToken] = useToken();
+  const { logout } = useToken();
   const navigate = useNavigate();
 
-  const logOut = () => {
-    setToken("");
-    navigate("/login");
+  const logOut = async () => {
+    await logout();
+    navigate("/login", { replace: true });
   };
 
   if (!user) {

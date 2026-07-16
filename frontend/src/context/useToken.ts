@@ -1,12 +1,12 @@
 import { useContext } from "react";
-import { TokenContext } from "../context/CreateContext";
+import { TokenContext } from "./CreateContext";
 
 export const useToken = () => {
-    const context = useContext(TokenContext);
+  const context = useContext(TokenContext);
 
-    if (!context) {
-        throw new Error("useToken must be used within a TokenProvider");
-    }
+  if (!context) {
+    throw new Error("useToken must be used within a TokenProvider");
+  }
 
-    return context;
+  return context;
 };

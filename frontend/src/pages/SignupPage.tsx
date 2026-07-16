@@ -5,7 +5,6 @@ import Button from "../components/common/Button";
 import Checkbox from "../components/common/Checkbox";
 import GoogleButton from "../components/common/GoogleButton";
 import Input from "../components/common/Input";
-import { useToken } from "../context/useToken";
 import AuthLayout from "../layouts/AuthLayout";
 import { api } from "../lib/axios";
 import { getErrorMessage } from "../lib/getErrorMessage";
@@ -16,7 +15,6 @@ import {
 } from "../lib/validation";
 
 const SignupPage: React.FC = () => {
-  const [, setToken] = useToken();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -72,12 +70,11 @@ const SignupPage: React.FC = () => {
     setError(null);
 
     try {
-      const response = await api.post<{ token: string }>("/auth/api/sign-up", {
+      await api.post("/auth/api/sign-up", {
         email: email.trim(),
         password,
       });
-      setToken(response.data.token);
-      navigate("/", { replace: true });
+      navigate("/login", { replace: true });
     } catch (err) {
       setError(getErrorMessage(err, "Sign up failed. Please try again."));
     } finally {

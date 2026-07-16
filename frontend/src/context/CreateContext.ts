@@ -1,10 +1,12 @@
 import { createContext } from "react";
 
-export type TokenContextType = [
-    string | null,
-    (token: string) => void
-];
+export interface AuthContextValue {
+  token: string | null;
+  setToken: (token: string | null) => void;
+  isAuthReady: boolean;
+  logout: () => Promise<void>;
+}
 
-export const TokenContext = createContext<TokenContextType | undefined>(
-    undefined
+export const TokenContext = createContext<AuthContextValue | undefined>(
+  undefined,
 );

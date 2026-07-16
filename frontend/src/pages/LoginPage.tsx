@@ -13,7 +13,7 @@ import { getErrorMessage } from "../lib/getErrorMessage";
 import { validateEmail, validatePassword } from "../lib/validation";
 
 const LoginPage: React.FC = () => {
-  const [, setToken] = useToken();
+  const { setToken, isAuthReady } = useToken();
   const user = useUser();
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,9 +77,9 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  if (user === undefined) {
+  if (!isAuthReady) {
     return (
-      <AuthLayout title="Loading" subtitle="Please wait a moment..." />
+      <AuthLayout title="Loading" subtitle="Checking your session..." />
     );
   }
   if (user) return null;
